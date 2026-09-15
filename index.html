@@ -351,7 +351,7 @@ button.next:disabled{background:var(--muted);cursor:not-allowed}
    CONFIG — edit these lines only
    ========================================================== */
 const CONFIG = {
-  ENDPOINT: "https://script.google.com/macros/s/AKfycbxxryX0MnyQGE0cUxHv3VM5PQE5LrSVq0Gw4ffbq-Vi18eZNytj2A-T6Hx7xhM8DWh8/exec",
+  ENDPOINT: "PASTE_YOUR_APPS_SCRIPT_URL_HERE",
   ADVISOR_URL_VALIDATING: "https://llmresearch.up.railway.app/share/hjcoult76dbsgdk",
   ADVISOR_URL_CHALLENGING: "https://llmresearch.up.railway.app/share/f8asul6nkxq7r61",
   DECISION_SECONDS: 180
@@ -505,8 +505,9 @@ checks("toolsUsed","tools_used",["Nothing","Pen and paper","Calculator","Spreads
 scale7("timeEffect","time_limit_effect","Not at all","Very much");
 
 document.getElementById("pcode").textContent = D.participant_code;
-const advisorURL = (D.arm==="validating"?CONFIG.ADVISOR_URL_VALIDATING:CONFIG.ADVISOR_URL_CHALLENGING)
-  .replace("{ARM}",D.arm).replace("{CODE}",D.participant_code);
+const baseAdvisorURL = D.arm==="validating" ? CONFIG.ADVISOR_URL_VALIDATING : CONFIG.ADVISOR_URL_CHALLENGING;
+const sep = baseAdvisorURL.includes("?") ? "&" : "?";
+const advisorURL = baseAdvisorURL + sep + "code=" + encodeURIComponent(D.participant_code);
 document.getElementById("advisorLink").href = advisorURL;
 
 document.getElementById("copyCode").addEventListener("click",function(){
