@@ -272,10 +272,6 @@ button.next:disabled{background:var(--muted);cursor:not-allowed}
   </div>
 
   <div class="q">
-    <div class="stim" id="stim5"></div>
-  </div>
-
-  <div class="q">
     <p class="qtext">Now, which plan do you choose?</p>
     <div class="opts" id="planPost"></div>
   </div>
@@ -292,7 +288,7 @@ button.next:disabled{background:var(--muted);cursor:not-allowed}
 
   <div class="q">
     <p class="qtext">How the advisor behaved</p>
-    <p class="legend">1 = Strongly disagree, 7 = Strongly agree</p>
+    <p class="legend">1 = Strongly disagree, 5 = Strongly agree</p>
     <table class="matrix" id="behaved"></table>
   </div>
 
@@ -303,19 +299,19 @@ button.next:disabled{background:var(--muted);cursor:not-allowed}
 
   <div class="q">
     <p class="qtext">Trust</p>
-    <p class="legend">1 = Strongly disagree, 7 = Strongly agree</p>
+    <p class="legend">1 = Strongly disagree, 5 = Strongly agree</p>
     <table class="matrix" id="trust"></table>
   </div>
 
   <div class="q">
     <p class="qtext">The advisor's motives</p>
-    <p class="legend">1 = Strongly disagree, 7 = Strongly agree</p>
+    <p class="legend">1 = Strongly disagree, 5 = Strongly agree</p>
     <table class="matrix" id="motives"></table>
   </div>
 
   <div class="q">
     <p class="qtext">Overall</p>
-    <p class="legend">1 = Strongly disagree, 7 = Strongly agree</p>
+    <p class="legend">1 = Strongly disagree, 5 = Strongly agree</p>
     <table class="matrix" id="overall"></table>
   </div>
 
@@ -340,7 +336,6 @@ button.next:disabled{background:var(--muted);cursor:not-allowed}
   <h1>Thank you</h1>
   <p>You were randomly assigned to one of two AI advisors: one was set up to support whatever plan you chose, the other to question choices that didn't meet the CEO's brief.</p>
   <p>NorthPeak and the plans' numbers were invented for this study. The Klarna note is real.</p>
-  <p>The cheapest plan is B ($4,400/month). It can't take 50 of the tickets, but those add only $1,250.</p>
   <div class="done-note">
     <p style="margin:0">Please don't share this with anyone who might take part. You can close this tab now.</p>
   </div>
@@ -358,13 +353,13 @@ const CONFIG = {
   ADVISOR_URL_VALIDATING: "https://llmresearch.up.railway.app/share/dxprv3t7vw9k8yc",
   ADVISOR_URL_CHALLENGING: "https://llmresearch.up.railway.app/share/ftl0sgq3288819k",
   DECISION_SECONDS: 180
-};
+}; 
 
 /* ==========================================================
    State
    ========================================================== */
 const D = {};
-D.participant_code = Array.from({length:6},()=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*32)]).join("");
+D.participant_code = "NP-" + Array.from({length:6},()=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*32)]).join("");
 D.arm = Math.random() < 0.5 ? "validating" : "challenging";
 D.started_at = new Date().toISOString();
 let decisionStart = null, advisorStart = null, timerId = null, submitted = false;
@@ -479,7 +474,6 @@ radios("hiring","hiring_or_supplier_decision",["Yes","No"]);
 radios("aifreq","ai_tool_frequency",["Never","Less than monthly","Monthly","Weekly","Daily"]);
 
 document.getElementById("stim2").innerHTML = stimulusHTML();
-document.getElementById("stim5").innerHTML = stimulusHTML();
 
 radios("planPre","plan_pre",["A","B","C","D","E"]);
 scale7("confPre","confidence_pre","Not at all confident","Completely confident");
@@ -499,11 +493,11 @@ radios("chatted","chatted_with_advisor",["Yes","I opened it but didn't chat","No
 radios("planPost","plan_post",["A","B","C","D","E"]);
 scale7("confPost","confidence_post","Not at all confident","Completely confident");
 radios("workedOut","worked_out_cost",["No","Yes, for my plan only","Yes, for two or three plans","Yes, for all five"]);
-matrix("behaved",BEHAVED,AGREE7);
+matrix("behaved",BEHAVED,AGREE5);
 radios("toldCheapest","told_cheapest",["Yes","No","Not sure"]);
-matrix("trust",TRUST,AGREE7);
-matrix("motives",MOTIVES,AGREE7);
-matrix("overall",OVERALL,AGREE7);
+matrix("trust",TRUST,AGREE5);
+matrix("motives",MOTIVES,AGREE5);
+matrix("overall",OVERALL,AGREE5);
 checks("toolsUsed","tools_used",["Nothing","Pen and paper","Calculator","Spreadsheet","Another AI tool"]);
 scale7("timeEffect","time_limit_effect","Not at all","Very much");
 
