@@ -358,11 +358,59 @@ const CONFIG = {
 /* ==========================================================
    State
    ========================================================== */
+const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const D = {};
-D.participant_code = "NP-" + Array.from({length:6},()=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*32)]).join("");
 D.arm = Math.random() < 0.5 ? "validating" : "challenging";
 D.started_at = new Date().toISOString();
+// D.participant_code and D.ai_recommendation are NOT set here. They're set in
+// finishDecisionPage(), once plan_pre is known — the validating arm's
+// recommendation table needs it. See the "v5 — AI recommendation" block below.
 let decisionStart = null, advisorStart = null, timerId = null, submitted = false;
+
+/* ==========================================================
+   v5 — AI recommendation (probability table)
+   ----------------------------------------------------------
+   The AI advisors never learn which plan is actually cheapest. Instead,
+   the code below draws ONE recommended plan letter and smuggles it into
+   the participant code as the character right after "NP-" (e.g. NP-B4KZG6
+   means "recommend B"). Each advisor's prompt reads that single letter and
+   defends it as its own opinion — it has no other source of an answer.
+
+   - Challenging (control) arm: FIXED_TABLE, independent of what the
+     participant chose. B (the true cheapest plan) is favoured but not
+     guaranteed, so the challenging advisor can hold a wrong recommendation.
+   - Validating (sycophantic) arm: same base table, but with TILT_BOOST
+     points added to whichever plan the participant just chose (plan_pre)
+     before renormalizing — right or wrong. This is where sycophancy lives:
+     in the odds, not in the prompt.
+
+   The numbers below (60/10/10/10/10 and +30) are placeholders from the
+   design discussion with the professor — confirm/tune before the pilot.
+   ========================================================== */
+const PLAN_LETTERS = ["A","B","C","D","E"];
+const FIXED_TABLE = { A:10, B:60, C:10, D:10, E:10 };
+const TILT_BOOST = 30;
+
+function getRecommendationTable(arm, planPre){
+  if(arm !== "validating" || !PLAN_LETTERS.includes(planPre)){
+    // Challenging arm, or no usable initial choice to tilt toward
+    // (timeout with nothing selected): always use the fixed table.
+    return Object.assign({}, FIXED_TABLE);
+  }
+  const table = Object.assign({}, FIXED_TABLE);
+  table[planPre] += TILT_BOOST;
+  return table;
+}
+
+function weightedPick(table){
+  const total = PLAN_LETTERS.reduce((sum,k)=>sum+table[k],0);
+  let r = Math.random()*total;
+  for(const k of PLAN_LETTERS){
+    r -= table[k];
+    if(r <= 0) return k;
+  }
+  return PLAN_LETTERS[PLAN_LETTERS.length-1]; // rounding fallback
+}
 
 /* ==========================================================
    Content
@@ -501,11 +549,13 @@ matrix("overall",OVERALL,AGREE5);
 checks("toolsUsed","tools_used",["Nothing","Pen and paper","Calculator","Spreadsheet","Another AI tool"]);
 scale7("timeEffect","time_limit_effect","Not at all","Very much");
 
-document.getElementById("pcode").textContent = D.participant_code;
-const baseAdvisorURL = D.arm==="validating" ? CONFIG.ADVISOR_URL_VALIDATING : CONFIG.ADVISOR_URL_CHALLENGING;
-const sep = baseAdvisorURL.includes("?") ? "&" : "?";
-const advisorURL = baseAdvisorURL + sep + "code=" + encodeURIComponent(D.participant_code);
-document.getElementById("advisorLink").href = advisorURL;
+function setupAdvisorPage(){
+  document.getElementById("pcode").textContent = D.participant_code;
+  const baseAdvisorURL = D.arm==="validating" ? CONFIG.ADVISOR_URL_VALIDATING : CONFIG.ADVISOR_URL_CHALLENGING;
+  const sep = baseAdvisorURL.includes("?") ? "&" : "?";
+  const advisorURL = baseAdvisorURL + sep + "code=" + encodeURIComponent(D.participant_code);
+  document.getElementById("advisorLink").href = advisorURL;
+}
 
 document.getElementById("copyCode").addEventListener("click",function(){
   const btn = this;
@@ -583,6 +633,7 @@ function show(id){
   setProgress(id);
   window.scrollTo(0,0);
   if(id==="p2") startTimer();
+  if(id==="p4") setupAdvisorPage();
   if(id==="p4") advisorStart = Date.now();
   if(id==="p4") D.advisor_page_started_at = new Date().toISOString();
   if(id==="p5" && advisorStart) D.seconds_on_advisor_page = Math.round((Date.now()-advisorStart)/1000);
@@ -644,6 +695,14 @@ function finishDecisionPage(reason){
   const chosen = readRadio("plan_pre");
   D.plan_pre = chosen || "no choice";
   D.decision_page_ended_by = reason;
+
+  // v5: now that plan_pre is known, draw the AI's recommendation and smuggle
+  // it into the participant code (the letter right after "NP-").
+  const table = getRecommendationTable(D.arm, D.plan_pre);
+  D.ai_recommendation = weightedPick(table);
+  D.participant_code = "NP-" + D.ai_recommendation +
+    Array.from({length:5},()=>CODE_ALPHABET[Math.floor(Math.random()*CODE_ALPHABET.length)]).join("");
+
   show("p3");
 }
 
@@ -654,6 +713,7 @@ document.getElementById("submitBtn").addEventListener("click",async ()=>{
   const btn = document.getElementById("submitBtn");
   const status = document.getElementById("sendStatus");
   collectPage(document.getElementById("p5"));
+  D.followed_recommendation = (D.plan_post === D.ai_recommendation) ? "yes" : "no";
   D.finished_at = new Date().toISOString();
 
   btn.disabled = true;
