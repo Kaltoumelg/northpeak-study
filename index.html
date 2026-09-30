@@ -174,6 +174,16 @@ button.next:disabled{background:var(--muted);cursor:not-allowed}
   </div>
 
   <div class="q">
+    <p class="qtext">Age</p>
+    <div class="opts"><input type="number" name="age" id="ageInput" min="16" max="100" inputmode="numeric" style="width:6rem"></div>
+  </div>
+
+  <div class="q">
+    <p class="qtext">Gender</p>
+    <div class="opts" id="gender"></div>
+  </div>
+
+  <div class="q">
     <p class="qtext">Main occupation</p>
     <div class="opts" id="occupation"></div>
   </div>
@@ -193,10 +203,16 @@ button.next:disabled{background:var(--muted);cursor:not-allowed}
     <div class="opts" id="aifreq"></div>
   </div>
 
+  <div class="q">
+    <p class="qtext">How comfortable are you with quantitative problems (numbers and calculations)?</p>
+    <div id="quantComfort"></div>
+  </div>
+
   <div class="nav">
     <p>Next you'll make a business decision. You have 5 minutes; the page moves on automatically. Please don't use other AI tools during this study.</p>
     <button class="next" data-goto="p2">Start the decision</button>
     <p class="err" id="e1">Please answer the consent question to continue.</p>
+    <p class="err" id="e1b">Please answer every question on this page to continue.</p>
   </div>
 </section>
 
@@ -216,6 +232,7 @@ button.next:disabled{background:var(--muted);cursor:not-allowed}
 
   <div class="nav">
     <button class="next" data-goto="p3">Continue</button>
+    <p class="err" id="e2">Please answer every question on this page to continue.</p>
   </div>
 </section>
 
@@ -238,6 +255,7 @@ button.next:disabled{background:var(--muted);cursor:not-allowed}
 
   <div class="nav">
     <button class="next" data-goto="p4">Continue</button>
+    <p class="err" id="e3">Please answer every question on this page to continue.</p>
   </div>
 </section>
 
@@ -288,7 +306,7 @@ button.next:disabled{background:var(--muted);cursor:not-allowed}
 
   <div class="q">
     <p class="qtext">How the advisor behaved</p>
-    <p class="legend">1 = Strongly disagree, 5 = Strongly agree</p>
+    <p class="legend">1 = Strongly disagree, 7 = Strongly agree</p>
     <table class="matrix" id="behaved"></table>
   </div>
 
@@ -299,19 +317,19 @@ button.next:disabled{background:var(--muted);cursor:not-allowed}
 
   <div class="q">
     <p class="qtext">Trust</p>
-    <p class="legend">1 = Strongly disagree, 5 = Strongly agree</p>
+    <p class="legend">1 = Strongly disagree, 7 = Strongly agree</p>
     <table class="matrix" id="trust"></table>
   </div>
 
   <div class="q">
     <p class="qtext">The advisor's motives</p>
-    <p class="legend">1 = Strongly disagree, 5 = Strongly agree</p>
+    <p class="legend">1 = Strongly disagree, 7 = Strongly agree</p>
     <table class="matrix" id="motives"></table>
   </div>
 
   <div class="q">
     <p class="qtext">Overall</p>
-    <p class="legend">1 = Strongly disagree, 5 = Strongly agree</p>
+    <p class="legend">1 = Strongly disagree, 7 = Strongly agree</p>
     <table class="matrix" id="overall"></table>
   </div>
 
@@ -327,6 +345,7 @@ button.next:disabled{background:var(--muted);cursor:not-allowed}
 
   <div class="nav">
     <button class="next" id="submitBtn">Submit and finish</button>
+    <p class="err" id="e5">Please answer every question on this page to continue.</p>
     <p class="status" id="sendStatus"></p>
   </div>
 </section>
@@ -509,10 +528,12 @@ function shuffle(a){const b=a.slice();for(let i=b.length-1;i>0;i--){const j=Math
 /* ---- build ---- */
 radios("consent","consent",["Yes","No"]);
 matrix("gaais",GAAIS,AGREE5);
+radios("gender","gender",["Male","Female","Non-binary","Prefer not to say"]);
 radios("occupation","occupation",["Student","Employed","Self-employed","Not currently working","Other"]);
 radios("managed","managed_people_budget",["No","Under 2 years","2–5 years","Over 5 years"]);
 radios("hiring","hiring_or_supplier_decision",["Yes","No"]);
 radios("aifreq","ai_tool_frequency",["Never","Less than monthly","Monthly","Weekly","Daily"]);
+scale7("quantComfort","quant_comfort","Not at all comfortable","Very comfortable");
 
 document.getElementById("stim2").innerHTML = stimulusHTML();
 
@@ -563,6 +584,8 @@ document.getElementById("copyCode").addEventListener("click",function(){
    ========================================================== */
 document.addEventListener("change",e=>{
   const el = e.target;
+  const page = el.closest(".page");
+  if(page) page.querySelectorAll(".err").forEach(x=>x.classList.remove("show"));
   if(el.type!=="radio" && el.type!=="checkbox") return;
 
   const row = el.closest(".opt");
@@ -612,9 +635,30 @@ function collectPage(page){
   const names = new Set();
   page.querySelectorAll("input[name]").forEach(i=>names.add(i.name));
   names.forEach(n=>{
-    const isCheck = page.querySelector(`input[name="${n}"]`).type === "checkbox";
-    D[n] = isCheck ? readChecks(n) : readRadio(n);
+    const el = page.querySelector(`input[name="${n}"]`);
+    if(el.type === "checkbox") D[n] = readChecks(n);
+    else if(el.type === "radio") D[n] = readRadio(n);
+    else D[n] = el.value.trim();
   });
+}
+
+// Returns the names of every required field on a page that's still unanswered
+// (radio/checkbox groups need one checked option, text/number inputs need a value).
+// Every question on every page is mandatory, per the study's current design.
+function pageMissingFields(page){
+  const names = new Set();
+  page.querySelectorAll("input[name]").forEach(i=>names.add(i.name));
+  const missing = [];
+  names.forEach(n=>{
+    const inputs = page.querySelectorAll(`input[name="${n}"]`);
+    const type = inputs[0].type;
+    if(type==="radio" || type==="checkbox"){
+      if(!Array.from(inputs).some(i=>i.checked)) missing.push(n);
+    } else if(!inputs[0].value.trim()){
+      missing.push(n);
+    }
+  });
+  return missing;
 }
 
 /* ==========================================================
@@ -638,9 +682,11 @@ document.querySelectorAll("button.next[data-goto]").forEach(btn=>{
 
     if(page.id==="p1"){
       const c = readRadio("consent");
+      document.getElementById("e1").classList.remove("show");
+      document.getElementById("e1b").classList.remove("show");
       if(!c){ document.getElementById("e1").classList.add("show"); return; }
-      collectPage(page);
       if(c==="No"){
+        collectPage(page);
         submitted = true;
         document.getElementById("prog").classList.add("hidden");
         document.getElementById("p6").innerHTML =
@@ -648,11 +694,22 @@ document.querySelectorAll("button.next[data-goto]").forEach(btn=>{
         show("p6");
         return;
       }
+      if(pageMissingFields(page).length){ document.getElementById("e1b").classList.add("show"); return; }
+      collectPage(page);
       show("p2"); return;
     }
 
-    if(page.id==="p2"){ finishDecisionPage("answered"); return; }
+    if(page.id==="p2"){
+      const missing = pageMissingFields(page);
+      document.getElementById("e2").classList.toggle("show", missing.length>0);
+      if(missing.length) return;
+      finishDecisionPage("answered"); return;
+    }
 
+    const missing = pageMissingFields(page);
+    const err = page.querySelector(".err");
+    if(missing.length){ if(err) err.classList.add("show"); return; }
+    if(err) err.classList.remove("show");
     collectPage(page);
     show(btn.dataset.goto);
   });
@@ -705,7 +762,11 @@ function finishDecisionPage(reason){
 document.getElementById("submitBtn").addEventListener("click",async ()=>{
   const btn = document.getElementById("submitBtn");
   const status = document.getElementById("sendStatus");
-  collectPage(document.getElementById("p5"));
+  const page5 = document.getElementById("p5");
+  const missing = pageMissingFields(page5);
+  document.getElementById("e5").classList.toggle("show", missing.length>0);
+  if(missing.length) return;
+  collectPage(page5);
   D.followed_recommendation = (D.plan_post === D.ai_recommendation) ? "yes" : "no";
   D.finished_at = new Date().toISOString();
 
